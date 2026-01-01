@@ -56,5 +56,5 @@ Thumbs.db
 *.log
 
 # Images (if you want to keep them private)
-# images/
-# !images/.gitkeep
+images/
+images/.gitkeep
