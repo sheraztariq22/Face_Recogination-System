@@ -1,0 +1,16 @@
+# Face Recognition System Requirements
+
+# Core deep learning framework
+tensorflow>=2.10.0
+keras>=2.10.0
+
+# Image processing
+Pillow>=9.0.0
+numpy>=1.21.0
+
+# Optional: For advanced visualization
+matplotlib>=3.5.0
+opencv-python>=4.6.0
+
+# Optional: For testing
+pytest>=7.0.0
