@@ -85,48 +85,6 @@ face_recognition_project/
 └── .gitignore                     # Git ignore file
 ```
 
-```
-face_recognition_project/
-│
-├── 📄 main.py                          # Main application entry point
-│
-├── 📦 models/
-│   ├── __init__.py
-│   └── facenet_model.py               # FaceNet model loader
-│
-├── 🧠 core/
-│   ├── __init__.py
-│   ├── verification.py                # Face verification logic
-│   └── recognition.py                 # Face recognition logic
-│
-├── 🛠️ utils/
-│   ├── __init__.py
-│   └── image_processing.py            # Image preprocessing utilities
-│
-├── 💾 database/
-│   ├── __init__.py
-│   ├── db_manager.py                  # Database operations
-│   └── face_database.pkl              # Serialized encodings (auto-generated)
-│
-├── 🤖 keras-facenet-h5/
-│   ├── model.json                     # Model architecture
-│   └── model.h5                       # Pre-trained weights (128 MB)
-│
-├── 🖼️ images/                          # Reference images
-│   ├── person1.jpg                    # Authorized personnel photos
-│   ├── person2.jpg
-│   └── camera_*.jpg                   # Test images
-│
-├── 🧪 tests/
-│   ├── __init__.py
-│   ├── test_verification.py
-│   └── test_recognition.py
-│
-├── 📋 requirements.txt                 # Python dependencies
-├── 📖 README.md                        # This file
-└── 🚫 .gitignore                      # Git exclusions
-```
-
 ## 🚀 Quick Start
 
 ### Prerequisites
