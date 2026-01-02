@@ -7,7 +7,10 @@ This package contains:
 - fr_utils.py: Utilities for weight loading and preprocessing
 """
 
-# Import key utilities
-from models import fr_utils
+# Don't import anything here to avoid circular imports
+# Import directly in your code when needed:
+# from models import fr_utils
+# from models.facenet_model import load_facenet_model
+# from models.inception_blocks_v2 import faceRecoModel
 
-__all__ = ['fr_utils']
+__all__ = ['facenet_model', 'inception_blocks_v2', 'fr_utils']

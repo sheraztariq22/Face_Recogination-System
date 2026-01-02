@@ -12,9 +12,56 @@ from tensorflow.keras.layers import (
     AveragePooling2D, Lambda, Flatten, Dense
 )
 from tensorflow.keras.models import Model
-from models import fr_utils
 
 K.set_image_data_format('channels_first')
+
+
+def conv2d_bn(x,
+              layer=None,
+              cv1_out=None,
+              cv1_filter=(1, 1),
+              cv1_strides=(1, 1),
+              cv2_out=None,
+              cv2_filter=(3, 3),
+              cv2_strides=(1, 1),
+              padding=None):
+    """
+    Utility function to apply conv + BN (copied from fr_utils to avoid circular import)
+    
+    Args:
+        x: Input tensor
+        layer: Layer name prefix
+        cv1_out: Number of filters in first conv layer
+        cv1_filter: Filter size for first conv
+        cv1_strides: Strides for first conv
+        cv2_out: Number of filters in second conv layer (optional)
+        cv2_filter: Filter size for second conv
+        cv2_strides: Strides for second conv
+        padding: Padding to apply
+        
+    Returns:
+        Output tensor after conv + BN + activation
+    """
+    num = '' if cv2_out == None else '1'
+    tensor = Conv2D(cv1_out, cv1_filter, strides=cv1_strides, 
+                    data_format='channels_first', name=layer+'_conv'+num)(x)
+    tensor = BatchNormalization(axis=1, epsilon=0.00001, name=layer+'_bn'+num)(tensor)
+    tensor = Activation('relu')(tensor)
+    
+    if padding == None:
+        return tensor
+    
+    tensor = ZeroPadding2D(padding=padding, data_format='channels_first')(tensor)
+    
+    if cv2_out == None:
+        return tensor
+    
+    tensor = Conv2D(cv2_out, cv2_filter, strides=cv2_strides, 
+                    data_format='channels_first', name=layer+'_conv'+'2')(tensor)
+    tensor = BatchNormalization(axis=1, epsilon=0.00001, name=layer+'_bn'+'2')(tensor)
+    tensor = Activation('relu')(tensor)
+    
+    return tensor
 
 
 def inception_block_1a(X):
@@ -92,7 +139,7 @@ def inception_block_1b(X):
 
 def inception_block_1c(X):
     """Implementation of inception block 1c"""
-    X_3x3 = fr_utils.conv2d_bn(X,
+    X_3x3 = conv2d_bn(X,
                            layer='inception_3c_3x3',
                            cv1_out=128,
                            cv1_filter=(1, 1),
@@ -101,7 +148,7 @@ def inception_block_1c(X):
                            cv2_strides=(2, 2),
                            padding=(1, 1))
 
-    X_5x5 = fr_utils.conv2d_bn(X,
+    X_5x5 = conv2d_bn(X,
                            layer='inception_3c_5x5',
                            cv1_out=32,
                            cv1_filter=(1, 1),
@@ -119,7 +166,7 @@ def inception_block_1c(X):
 
 def inception_block_2a(X):
     """Implementation of inception block 2a"""
-    X_3x3 = fr_utils.conv2d_bn(X,
+    X_3x3 = conv2d_bn(X,
                            layer='inception_4a_3x3',
                            cv1_out=96,
                            cv1_filter=(1, 1),
@@ -127,7 +174,7 @@ def inception_block_2a(X):
                            cv2_filter=(3, 3),
                            cv2_strides=(1, 1),
                            padding=(1, 1))
-    X_5x5 = fr_utils.conv2d_bn(X,
+    X_5x5 = conv2d_bn(X,
                            layer='inception_4a_5x5',
                            cv1_out=32,
                            cv1_filter=(1, 1),
@@ -137,12 +184,12 @@ def inception_block_2a(X):
                            padding=(2, 2))
 
     X_pool = AveragePooling2D(pool_size=(3, 3), strides=(3, 3), data_format='channels_first')(X)
-    X_pool = fr_utils.conv2d_bn(X_pool,
+    X_pool = conv2d_bn(X_pool,
                            layer='inception_4a_pool',
                            cv1_out=128,
                            cv1_filter=(1, 1),
                            padding=(2, 2))
-    X_1x1 = fr_utils.conv2d_bn(X,
+    X_1x1 = conv2d_bn(X,
                            layer='inception_4a_1x1',
                            cv1_out=256,
                            cv1_filter=(1, 1))
@@ -152,7 +199,7 @@ def inception_block_2a(X):
 
 def inception_block_2b(X):
     """Implementation of inception block 2b (inception4e)"""
-    X_3x3 = fr_utils.conv2d_bn(X,
+    X_3x3 = conv2d_bn(X,
                            layer='inception_4e_3x3',
                            cv1_out=160,
                            cv1_filter=(1, 1),
@@ -160,7 +207,7 @@ def inception_block_2b(X):
                            cv2_filter=(3, 3),
                            cv2_strides=(2, 2),
                            padding=(1, 1))
-    X_5x5 = fr_utils.conv2d_bn(X,
+    X_5x5 = conv2d_bn(X,
                            layer='inception_4e_5x5',
                            cv1_out=64,
                            cv1_filter=(1, 1),
@@ -178,7 +225,7 @@ def inception_block_2b(X):
 
 def inception_block_3a(X):
     """Implementation of inception block 3a"""
-    X_3x3 = fr_utils.conv2d_bn(X,
+    X_3x3 = conv2d_bn(X,
                            layer='inception_5a_3x3',
                            cv1_out=96,
                            cv1_filter=(1, 1),
@@ -187,12 +234,12 @@ def inception_block_3a(X):
                            cv2_strides=(1, 1),
                            padding=(1, 1))
     X_pool = AveragePooling2D(pool_size=(3, 3), strides=(3, 3), data_format='channels_first')(X)
-    X_pool = fr_utils.conv2d_bn(X_pool,
+    X_pool = conv2d_bn(X_pool,
                            layer='inception_5a_pool',
                            cv1_out=96,
                            cv1_filter=(1, 1),
                            padding=(1, 1))
-    X_1x1 = fr_utils.conv2d_bn(X,
+    X_1x1 = conv2d_bn(X,
                            layer='inception_5a_1x1',
                            cv1_out=256,
                            cv1_filter=(1, 1))
@@ -203,7 +250,7 @@ def inception_block_3a(X):
 
 def inception_block_3b(X):
     """Implementation of inception block 3b"""
-    X_3x3 = fr_utils.conv2d_bn(X,
+    X_3x3 = conv2d_bn(X,
                            layer='inception_5b_3x3',
                            cv1_out=96,
                            cv1_filter=(1, 1),
@@ -212,13 +259,13 @@ def inception_block_3b(X):
                            cv2_strides=(1, 1),
                            padding=(1, 1))
     X_pool = MaxPooling2D(pool_size=3, strides=2, data_format='channels_first')(X)
-    X_pool = fr_utils.conv2d_bn(X_pool,
+    X_pool = conv2d_bn(X_pool,
                            layer='inception_5b_pool',
                            cv1_out=96,
                            cv1_filter=(1, 1))
     X_pool = ZeroPadding2D(padding=(1, 1), data_format='channels_first')(X_pool)
 
-    X_1x1 = fr_utils.conv2d_bn(X,
+    X_1x1 = conv2d_bn(X,
                            layer='inception_5b_1x1',
                            cv1_out=256,
                            cv1_filter=(1, 1))
