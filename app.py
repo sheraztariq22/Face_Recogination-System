@@ -141,6 +141,14 @@ def log_access(identity, verified, distance):
 
 
 def main():
+    # Initialize system and database on first load
+    if st.session_state.system is None:
+        st.session_state.system = initialize_system()
+        if st.session_state.system:
+            with st.spinner("Building face database..."):
+                st.session_state.system.build_database('images')
+                st.session_state.database_loaded = True
+    
     # Header
     st.markdown('<p class="main-header">🎭 Face Recognition System</p>', unsafe_allow_html=True)
     st.markdown("---")
