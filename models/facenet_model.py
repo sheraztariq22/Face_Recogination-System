@@ -214,9 +214,10 @@ def test_model_loading(model_path='keras-facenet-h5'):
         print(f"   Input shape: {model.input_shape}")
         print(f"   Output shape: {model.output_shape}")
         
-        # Test with dummy input
+        # Test with dummy input - use channels_first format (3, 96, 96)
         import numpy as np
-        dummy_input = np.random.rand(1, 160, 160, 3).astype(np.float32)
+        # Create test input with correct shape: (batch_size, channels, height, width)
+        dummy_input = np.random.rand(1, 3, 96, 96).astype(np.float32)
         output = model.predict(dummy_input, verbose=0)
         print(f"   Test prediction shape: {output.shape}")
         print(f"   Output is normalized: {np.allclose(np.linalg.norm(output), 1.0)}")
