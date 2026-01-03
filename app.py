@@ -485,40 +485,77 @@ def show_add_person_page():
     
     st.markdown("""
     <div class="info-box">
-    <strong>ℹ️ Instructions:</strong> Upload a clear, front-facing photo of the person you want to add.
-    Make sure the face is visible and well-lit.
+    <strong>ℹ️ Instructions:</strong> Choose to either capture a photo using your camera or upload an existing photo. 
+    Make sure the face is visible, front-facing, and well-lit.
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 1])
+    # Person name input
+    st.markdown("#### Person Details")
+    person_name = st.text_input("Enter person's name", placeholder="e.g., John Doe", key="person_name_input")
     
-    with col1:
-        st.markdown("#### Person Details")
-        person_name = st.text_input("Enter person's name", placeholder="e.g., John Doe")
+    # Tab selection between camera and upload
+    tab1, tab2 = st.tabs(["📷 Capture from Camera", "📁 Upload Photo"])
+    
+    image_to_add = None
+    source_type = None
+    
+    with tab1:
+        st.markdown("#### Capture Photo from Camera")
+        st.markdown("""
+        Click the button below to capture a photo directly from your webcam.
+        Position yourself in good lighting with a clear view of your face.
+        """)
         
-        st.markdown("#### Upload Photo")
-        uploaded_file = st.file_uploader("Choose a clear photo", type=['jpg', 'jpeg', 'png'], key="add_person")
-    
-    with col2:
-        if uploaded_file:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Preview", use_column_width=True)
+        picture = st.camera_input("Take a picture")
+        
+        if picture:
+            image_to_add = Image.open(picture)
+            source_type = "camera"
             
-            st.markdown("#### Image Requirements")
-            st.markdown("""
-            - ✅ Clear, front-facing photo
-            - ✅ Good lighting
-            - ✅ Face clearly visible
-            - ✅ No sunglasses or masks
-            - ✅ Minimum 160x160 pixels
-            """)
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.image(image_to_add, caption="Camera Capture Preview", use_column_width=True)
+            with col2:
+                st.markdown("#### Image Quality Checklist")
+                st.markdown("""
+                - ✅ Face is front-facing
+                - ✅ Good lighting
+                - ✅ Face clearly visible
+                - ✅ No sunglasses or masks
+                - ✅ Face takes up most of frame
+                """)
     
-    if st.button("➕ Add to Database", type="primary"):
+    with tab2:
+        st.markdown("#### Upload Photo from File")
+        st.markdown("Choose a clear, front-facing photo from your device.")
+        
+        uploaded_file = st.file_uploader("Choose a photo", type=['jpg', 'jpeg', 'png'], key="add_person_upload")
+        
+        if uploaded_file:
+            image_to_add = Image.open(uploaded_file)
+            source_type = "upload"
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.image(image_to_add, caption="Upload Preview", use_column_width=True)
+            with col2:
+                st.markdown("#### Image Quality Checklist")
+                st.markdown("""
+                - ✅ Clear, front-facing photo
+                - ✅ Good lighting
+                - ✅ Face clearly visible
+                - ✅ No sunglasses or masks
+                - ✅ Minimum 160x160 pixels
+                """)
+    
+    # Add to database button
+    if st.button("➕ Add to Database", type="primary", key="add_person_btn"):
         if not person_name:
-            st.error("Please enter a name!")
+            st.error("❌ Please enter a name!")
             return
-        if not uploaded_file:
-            st.error("Please upload an image!")
+        if image_to_add is None:
+            st.error("❌ Please capture or upload an image!")
             return
         
         # Check if person already exists
@@ -526,24 +563,41 @@ def show_add_person_page():
             st.warning(f"⚠️ {person_name} already exists in the database!")
             return
         
-        with st.spinner(f"Adding {person_name} to database..."):
+        with st.spinner(f"Processing and adding {person_name} to database..."):
             # Save image to images folder
             image_path = os.path.join('images', f"{person_name}.jpg")
-            image = Image.open(uploaded_file)
-            image.save(image_path)
+            
+            # Ensure images directory exists
+            os.makedirs('images', exist_ok=True)
+            
+            # Save the image
+            image_to_add.save(image_path)
             
             try:
                 # Add to database
                 st.session_state.system.add_person_to_database(person_name, image_path)
                 
-                st.success(f"✅ {person_name} has been added to the database!")
+                st.success(f"✅ {person_name} has been successfully added to the database!")
                 st.balloons()
                 
                 # Show updated count
-                st.info(f"Total people in database: {len(st.session_state.system.database)}")
+                st.info(f"👥 Total people in database: {len(st.session_state.system.database)}")
+                
+                # Display the added person
+                st.markdown("---")
+                st.markdown(f"### ✅ Added: {person_name}")
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    st.image(image_to_add, caption=f"{person_name}", use_column_width=True)
+                with col2:
+                    st.markdown(f"""
+                    **Name:** {person_name}  
+                    **Source:** {'Camera' if source_type == 'camera' else 'File Upload'}  
+                    **Status:** ✅ Successfully Added
+                    """)
                 
             except Exception as e:
-                st.error(f"Error adding person: {str(e)}")
+                st.error(f"❌ Error adding person: {str(e)}")
                 # Remove image if failed
                 if os.path.exists(image_path):
                     os.remove(image_path)
