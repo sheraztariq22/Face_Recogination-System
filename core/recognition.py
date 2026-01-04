@@ -1,6 +1,9 @@
 """
 Face Recognition Module
 core/recognition.py
+
+Based on FaceNet implementation
+Provides 1:K matching for face recognition
 """
 
 import numpy as np
@@ -9,7 +12,7 @@ from utils.image_processing import img_to_encoding
 
 def who_is_it(image_path, database, model, threshold=0.7):
     """
-    Identify who the person in the image is
+    Identify who the person in the image is.
     
     This is a 1:K matching problem - identify which person from the database
     matches the input image.
@@ -44,12 +47,12 @@ def who_is_it(image_path, database, model, threshold=0.7):
     
     # Step 3: Check if the best match is within threshold
     if min_dist > threshold:
-        print("✗ Not in the database.")
+        print("Not in the database.")
         print(f"  Closest match: {identity} (distance: {min_dist:.4f})")
         print(f"  Threshold: {threshold}")
         return min_dist, None
     else:
-        print(f"✓ It's {identity}!")
+        print(f"It's {identity}!")
         print(f"  Distance: {min_dist:.4f}")
         return min_dist, identity
 
@@ -59,18 +62,17 @@ def recognize_with_confidence(image_path, database, model, threshold=0.7):
     Recognize person with confidence score
     
     Args:
-        image_path: Path to the image
-        database: Face encoding database
-        model: FaceNet model
-        threshold: Recognition threshold
+        image_path: Path to the image to recognize
+        database: Dictionary mapping names to their face encodings
+        model: Pre-trained FaceNet model
+        threshold: Distance threshold for identification
         
     Returns:
-        Dictionary with recognition results and confidence
+        dict: Contains identity, distance, and confidence score
     """
     min_dist, identity = who_is_it(image_path, database, model, threshold)
     
-    # Calculate confidence (inverse of distance, normalized)
-    if identity is not None:
+    if identity:
         confidence = max(0, (1 - min_dist / threshold) * 100)
     else:
         confidence = 0
@@ -79,31 +81,32 @@ def recognize_with_confidence(image_path, database, model, threshold=0.7):
         'identity': identity,
         'distance': min_dist,
         'confidence': confidence,
-        'recognized': identity is not None
+        'verified': identity is not None
     }
 
 
 def get_top_k_matches(image_path, database, model, k=3):
     """
-    Get top K closest matches from the database
+    Get the top K closest matches from the database
     
     Args:
-        image_path: Path to the image
-        database: Face encoding database
-        model: FaceNet model
-        k: Number of top matches to return
+        image_path: Path to the image to recognize
+        database: Dictionary mapping names to their face encodings
+        model: Pre-trained FaceNet model
+        k: Number of top matches to return (default: 3)
         
     Returns:
         List of tuples (name, distance) sorted by distance
     """
+    # Compute encoding for the input image
     encoding = img_to_encoding(image_path, model)
     
-    # Calculate distances for all people in database
+    # Calculate distances to all people
     distances = []
     for name, db_enc in database.items():
         dist = np.linalg.norm(encoding - db_enc)
         distances.append((name, dist))
     
-    # Sort by distance and return top k
+    # Sort by distance and return top K
     distances.sort(key=lambda x: x[1])
     return distances[:k]

@@ -1,6 +1,8 @@
 """
 FaceNet Model Loading Module
-models/facenet_model.py - FIXED FOR LAMBDA LAYERS
+models/facenet_model.py - Loads pre-trained FaceNet model
+
+Based on FaceNet (https://arxiv.org/pdf/1503.03832.pdf)
 """
 
 import os
@@ -22,7 +24,7 @@ def load_facenet_model(model_path='keras-facenet-h5'):
     """
     K.set_image_data_format('channels_last')
     
-    print(f"🔄 Loading FaceNet model from {model_path}...")
+    print(f"[*] Loading FaceNet model from {model_path}...")
     
     # Path to model files
     json_path = os.path.join(model_path, 'model.json')

@@ -305,22 +305,26 @@ def show_verification_page():
         claimed_identity = st.selectbox("Who are you?", people)
         
         # Threshold setting
-        threshold = st.slider("Verification Threshold", 0.0, 1.0, 0.7, 0.05)
-        st.caption(f"Current threshold: {threshold:.2f} (Lower = stricter)")
+        st.markdown("#### 2. Threshold Settings")
+        st.caption("⚠️ Current model uses untrained weights. Recommend threshold: 0.02-0.05")
+        threshold = st.slider("Verification Threshold", 0.0, 1.0, 0.05, 0.005)
+        st.caption(f"Current threshold: {threshold:.3f} (Lower = stricter, 0.05 is recommended)")
     
     with col2:
         # Image upload
-        st.markdown("#### 2. Upload Image")
+        st.markdown("#### 3. Upload Image")
         uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'])
         
         if uploaded_file:
             image = Image.open(uploaded_file)
             st.image(image, caption="Uploaded Image", use_column_width=True)
     
+    st.markdown("---")
+    
     # Verify button
     if st.button("🔍 Verify Identity", type="primary"):
         if not uploaded_file:
-            st.error("Please upload an image first!")
+            st.error("❌ Please upload an image first!")
             return
         
         with st.spinner("Verifying identity..."):
@@ -328,9 +332,9 @@ def show_verification_page():
             temp_path = save_uploaded_file(uploaded_file)
             
             try:
-                # Perform verification
+                # Perform verification with the user-selected threshold
                 distance, verified = st.session_state.system.verify_identity(
-                    temp_path, claimed_identity
+                    temp_path, claimed_identity, threshold=threshold
                 )
                 
                 # Log access
@@ -343,20 +347,26 @@ def show_verification_page():
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("Distance", f"{distance:.4f}")
+                    st.metric("Distance Score", f"{distance:.4f}")
                 with col2:
-                    st.metric("Threshold", f"{threshold:.2f}")
+                    st.metric("Threshold", f"{threshold:.4f}")
                 with col3:
                     status = "✅ VERIFIED" if verified else "❌ DENIED"
                     st.metric("Status", status)
                 
                 if verified:
+                    # Calculate confidence
+                    if threshold > 0:
+                        confidence = max(0, (1 - distance/threshold) * 100)
+                    else:
+                        confidence = 100 if distance == 0 else 0
+                    
                     st.markdown(f"""
                     <div class="success-box">
                     <h3>✅ Access Granted</h3>
                     <p><strong>Welcome, {claimed_identity}!</strong></p>
-                    <p>Distance: {distance:.4f} (Below threshold: {threshold:.2f})</p>
-                    <p>Confidence: {(1 - distance/threshold) * 100:.1f}%</p>
+                    <p>Distance: {distance:.4f} (Below threshold: {threshold:.4f})</p>
+                    <p>Confidence: {confidence:.1f}%</p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -364,13 +374,38 @@ def show_verification_page():
                     <div class="error-box">
                     <h3>❌ Access Denied</h3>
                     <p><strong>You are not {claimed_identity}</strong></p>
-                    <p>Distance: {distance:.4f} (Above threshold: {threshold:.2f})</p>
+                    <p>Distance: {distance:.4f} (Above threshold: {threshold:.4f})</p>
                     <p>The face does not match the claimed identity.</p>
                     </div>
                     """, unsafe_allow_html=True)
                 
+                # Show distance comparison with all people
+                st.markdown("---")
+                st.markdown("### 📊 Distance Comparison with Database")
+                
+                from utils.image_processing import img_to_encoding
+                import numpy as np
+                
+                test_encoding = img_to_encoding(temp_path, st.session_state.system.model)
+                
+                comparison_data = []
+                for name, db_enc in sorted(st.session_state.system.database.items()):
+                    dist = np.linalg.norm(test_encoding - db_enc)
+                    match = "✓" if dist < threshold else "✗"
+                    is_claimed = "← Claimed Identity" if name == claimed_identity else ""
+                    comparison_data.append({
+                        "Name": f"{name} {is_claimed}",
+                        "Distance": f"{dist:.4f}",
+                        "Below Threshold": match
+                    })
+                
+                df_comparison = pd.DataFrame(comparison_data)
+                st.dataframe(df_comparison, use_container_width=True, hide_index=True)
+                
             except Exception as e:
-                st.error(f"Error during verification: {str(e)}")
+                st.error(f"❌ Error during verification: {str(e)}")
+                import traceback
+                st.write(traceback.format_exc())
             finally:
                 # Cleanup
                 if os.path.exists(temp_path):
@@ -397,7 +432,9 @@ def show_recognition_page():
     
     with col1:
         st.markdown("#### ⚙️ Settings")
-        threshold = st.slider("Recognition Threshold", 0.0, 1.0, 0.7, 0.05)
+        st.caption("⚠️ Current model uses untrained weights. Recommend threshold: 0.02-0.05")
+        threshold = st.slider("Recognition Threshold", 0.0, 1.0, 0.05, 0.005)
+        st.caption(f"Current threshold: {threshold:.3f}")
     
     with col2:
         st.markdown("#### 📊 Display Options")

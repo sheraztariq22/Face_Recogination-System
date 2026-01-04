@@ -1,15 +1,18 @@
 """
 Face Verification Module
 core/verification.py
+
+Based on FaceNet implementation
+Provides 1:1 matching for face verification
 """
 
 import numpy as np
 from utils.image_processing import img_to_encoding
 
 
-def verify(image_path, identity, database, model, threshold=0.7):
+def verify(image_path, identity, database, model, threshold=0.05):
     """
-    Verify if the person in the image matches the claimed identity
+    Verify if the person in the image matches the claimed identity.
     
     This is a 1:1 matching problem - verify that the person is who they claim to be.
     
@@ -18,7 +21,7 @@ def verify(image_path, identity, database, model, threshold=0.7):
         identity: Name of the person claiming to be in the image
         database: Dictionary mapping names to their face encodings
         model: Pre-trained FaceNet model
-        threshold: Maximum distance for positive verification (default: 0.7)
+        threshold: Maximum distance for positive verification (default: 0.05)
         
     Returns:
         tuple: (distance, door_open_flag)
@@ -38,17 +41,17 @@ def verify(image_path, identity, database, model, threshold=0.7):
     
     # Step 4: Compare distance with threshold
     if dist < threshold:
-        print(f"✓ It's {identity}, welcome in!")
+        print(f"It's {identity}, welcome in!")
         door_open = True
     else:
-        print(f"✗ It's not {identity}, please go away")
+        print(f"It's not {identity}, please go away")
         print(f"  Distance: {dist:.4f} (threshold: {threshold})")
         door_open = False
     
     return dist, door_open
 
 
-def batch_verify(image_paths, identities, database, model, threshold=0.7):
+def batch_verify(image_paths, identities, database, model, threshold=0.05):
     """
     Verify multiple images at once
     
