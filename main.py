@@ -13,8 +13,8 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.keras import backend as K
 from PIL import Image
 
-# Set image data format to channels_last (required for pre-trained model)
-K.set_image_data_format('channels_last')
+# Set to channels_first format (required for the Inception model built from scratch)
+K.set_image_data_format('channels_first')
 
 # Import custom modules
 from models.facenet_model import load_facenet_model
@@ -25,7 +25,10 @@ from database.db_manager import create_database
 
 def img_to_encoding(image_path, model):
     """
-    Convert an image to its 128-dimensional encoding using FaceNet model
+    Convert an image to its 128-dimensional encoding using FaceNet model.
+    
+    The Inception model (built from inception_blocks_v2) expects 96x96x3 images
+    in channels-first format (3, 96, 96).
     
     Args:
         image_path: Path to the image file
@@ -33,20 +36,28 @@ def img_to_encoding(image_path, model):
         
     Returns:
         Normalized encoding vector of shape (1, 128)
+        The encoding is L2 normalized to unit length.
     """
-    # Load and resize image to 160x160 (required input size for the model)
-    img = tf.keras.preprocessing.image.load_img(image_path, target_size=(160, 160))
+    # Load and resize image to 96x96 (required input size for the model)
+    img = tf.keras.preprocessing.image.load_img(image_path, target_size=(96, 96))
     
     # Convert to numpy array and normalize to [0, 1]
-    img = np.around(np.array(img) / 255.0, decimals=12)
+    # Round to 12 decimals to match the notebook implementation
+    img_array = np.around(np.array(img) / 255.0, decimals=12)
     
-    # Add batch dimension: (160, 160, 3) -> (1, 160, 160, 3)
-    x_train = np.expand_dims(img, axis=0)
+    # Convert to channels-first format (3, 96, 96)
+    # PIL loads as (96, 96, 3) so we need to transpose
+    if img_array.ndim == 3 and img_array.shape[2] == 3:
+        img_array = np.transpose(img_array, (2, 0, 1))
+    
+    # Add batch dimension: (3, 96, 96) -> (1, 3, 96, 96)
+    x_train = np.expand_dims(img_array, axis=0)
     
     # Get the embedding from the model
     embedding = model.predict_on_batch(x_train)
     
-    # Normalize the embedding to unit length (L2 normalization)
+    # L2 normalize the embedding to unit length
+    # This ensures embeddings are on the unit hypersphere
     return embedding / np.linalg.norm(embedding, ord=2)
 
 
