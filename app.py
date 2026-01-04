@@ -387,36 +387,77 @@ def show_recognition_page():
     
     st.markdown("""
     <div class="info-box">
-    <strong>ℹ️ How it works:</strong> Upload an image and the system will search the entire 
-    database to identify who the person is.
+    <strong>ℹ️ How it works:</strong> Capture a live photo or upload an image and the system will search 
+    the entire database to identify who the person is.
     </div>
     """, unsafe_allow_html=True)
     
+    # Settings section
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("#### Settings")
+        st.markdown("#### ⚙️ Settings")
         threshold = st.slider("Recognition Threshold", 0.0, 1.0, 0.7, 0.05)
-        show_top_matches = st.checkbox("Show top 3 matches", value=True)
     
     with col2:
-        st.markdown("#### Upload Image")
+        st.markdown("#### 📊 Display Options")
+        show_top_matches = st.checkbox("Show top 3 matches", value=True)
+        show_distance_chart = st.checkbox("Show distance chart", value=True)
+    
+    st.markdown("---")
+    
+    # Tab selection between camera and upload
+    tab1, tab2 = st.tabs(["📷 Live Camera Capture", "📁 Upload Image"])
+    
+    image_to_recognize = None
+    source_type = None
+    temp_path = None
+    
+    with tab1:
+        st.markdown("#### Capture from Webcam")
+        st.markdown("Click below to capture a photo from your camera. Make sure you have good lighting.")
+        
+        picture = st.camera_input("Take a picture for recognition")
+        
+        if picture:
+            image_to_recognize = Image.open(picture)
+            source_type = "camera"
+            
+            st.image(image_to_recognize, caption="Camera Capture", use_column_width=True)
+    
+    with tab2:
+        st.markdown("#### Upload Image for Recognition")
+        st.markdown("Choose an image from your device to identify the person.")
+        
         uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'], key="recognition")
         
         if uploaded_file:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+            image_to_recognize = Image.open(uploaded_file)
+            source_type = "upload"
+            
+            st.image(image_to_recognize, caption="Uploaded Image", use_column_width=True)
     
     # Recognize button
-    if st.button("🔍 Identify Person", type="primary"):
-        if not uploaded_file:
-            st.error("Please upload an image first!")
+    if st.button("🔍 Identify Person", type="primary", key="recognize_btn"):
+        if image_to_recognize is None:
+            st.error("❌ Please capture or upload an image first!")
             return
         
-        with st.spinner("Identifying person..."):
-            temp_path = save_uploaded_file(uploaded_file)
-            
+        with st.spinner("🔄 Analyzing image and searching database..."):
             try:
+                # Save image temporarily
+                if source_type == "camera":
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
+                        image_to_recognize.save(tmp_file.name)
+                        temp_path = tmp_file.name
+                else:
+                    temp_path = save_uploaded_file(uploaded_file) if 'uploaded_file' in locals() else None
+                
+                if temp_path is None:
+                    st.error("❌ Could not process image!")
+                    return
+                
                 # Perform recognition
                 min_distance, identity = st.session_state.system.recognize_person(temp_path)
                 
@@ -424,28 +465,51 @@ def show_recognition_page():
                 st.markdown("---")
                 st.markdown("### 🎯 Recognition Results")
                 
+                # Calculate confidence
+                if identity:
+                    confidence = max(0, (1 - min_distance/threshold) * 100)
+                else:
+                    confidence = 0
+                
                 if identity and min_distance < threshold:
                     # Log access
                     log_access(identity, True, min_distance)
                     
+                    # Success display
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Identified As", identity.upper())
+                        st.metric("✅ Identified As", identity.upper(), delta="AUTHORIZED")
                     with col2:
-                        st.metric("Distance", f"{min_distance:.4f}")
+                        st.metric("📏 Distance", f"{min_distance:.4f}")
                     with col3:
-                        confidence = (1 - min_distance/threshold) * 100
-                        st.metric("Confidence", f"{confidence:.1f}%")
+                        st.metric("🎯 Confidence", f"{confidence:.1f}%")
                     
                     st.markdown(f"""
                     <div class="success-box">
-                    <h3>✅ Person Identified</h3>
+                    <h3>✅ Person Successfully Identified</h3>
                     <p><strong>Identity: {identity}</strong></p>
-                    <p>Confidence: {confidence:.1f}%</p>
+                    <p><strong>Confidence: {confidence:.1f}%</strong></p>
+                    <p><strong>Distance Score: {min_distance:.4f}</strong></p>
                     <p>This person is authorized and in the database.</p>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    # Show the matched person's info
+                    st.markdown("---")
+                    st.markdown(f"### 👤 Matched Person: {identity}")
+                    image_path = os.path.join('images', f"{identity}.jpg")
+                    if os.path.exists(image_path):
+                        matched_image = Image.open(image_path)
+                        col1, col2 = st.columns([1, 2])
+                        with col1:
+                            st.image(matched_image, caption=f"Database image of {identity}", use_column_width=True)
+                        with col2:
+                            st.success(f"✅ Successfully matched with {identity} in the database!")
+                
                 else:
+                    # Not recognized
+                    log_access("Unknown", False, min_distance if identity else float('inf'))
+                    
                     st.markdown("""
                     <div class="error-box">
                     <h3>❌ Person Not Recognized</h3>
@@ -453,25 +517,57 @@ def show_recognition_page():
                     <p>This person is not in the database or confidence is too low.</p>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    if identity:
+                        st.warning(f"⚠️ Closest match: **{identity}** (Distance: {min_distance:.4f}, Confidence: {confidence:.1f}%)")
+                        st.info(f"To add this person, use the 'Add Person' page.")
                 
                 # Show top matches
                 if show_top_matches:
                     from core.recognition import get_top_k_matches
                     
                     st.markdown("---")
-                    st.markdown("### 📊 Top 3 Closest Matches")
+                    st.markdown("### 📊 Top 3 Closest Matches in Database")
                     
                     top_matches = get_top_k_matches(temp_path, st.session_state.system.database, 
                                                     st.session_state.system.model, k=3)
                     
+                    match_data = []
                     for i, (name, dist) in enumerate(top_matches, 1):
                         conf = max(0, (1 - dist/threshold) * 100)
-                        st.write(f"**{i}. {name}** - Distance: {dist:.4f} - Confidence: {conf:.1f}%")
+                        match_data.append({
+                            "Rank": i,
+                            "Name": name,
+                            "Distance": f"{dist:.4f}",
+                            "Confidence": f"{conf:.1f}%"
+                        })
+                    
+                    df_matches = pd.DataFrame(match_data)
+                    st.dataframe(df_matches, use_container_width=True, hide_index=True)
+                    
+                    # Distance chart
+                    if show_distance_chart and len(match_data) > 0:
+                        import matplotlib.pyplot as plt
+                        
+                        names = [m["Name"] for m in match_data]
+                        distances = [float(m["Distance"]) for m in match_data]
+                        
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        colors = ['green' if d < threshold else 'red' for d in distances]
+                        ax.barh(names, distances, color=colors, alpha=0.7)
+                        ax.axvline(x=threshold, color='orange', linestyle='--', label=f'Threshold ({threshold})')
+                        ax.set_xlabel('Distance Score (lower is better)')
+                        ax.set_title('Face Distance Comparison')
+                        ax.legend()
+                        
+                        st.pyplot(fig)
                 
             except Exception as e:
-                st.error(f"Error during recognition: {str(e)}")
+                st.error(f"❌ Error during recognition: {str(e)}")
+                import traceback
+                st.write(traceback.format_exc())
             finally:
-                if os.path.exists(temp_path):
+                if temp_path and os.path.exists(temp_path):
                     os.remove(temp_path)
 
 
