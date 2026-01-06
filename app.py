@@ -780,13 +780,30 @@ def show_database_manager_page():
         person_to_remove = st.selectbox("Select person to remove", 
                                        list(st.session_state.system.database.keys()))
         
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("🗑️ Remove", type="secondary"):
-                if st.checkbox(f"Confirm removal of {person_to_remove}"):
-                    st.session_state.system.remove_person_from_database(person_to_remove)
-                    st.success(f"✅ {person_to_remove} has been removed!")
-                    st.rerun()
+        # Confirmation checkbox
+        confirm_removal = st.checkbox(f"I want to remove {person_to_remove} from the database", 
+                                     key=f"confirm_{person_to_remove}")
+        
+        if confirm_removal:
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                if st.button("🗑️ Confirm Remove", type="secondary"):
+                    try:
+                        # Remove from database
+                        st.session_state.system.remove_person_from_database(person_to_remove)
+                        
+                        # Remove image file if it exists
+                        image_path = os.path.join('images', f"{person_to_remove}.jpg")
+                        if os.path.exists(image_path):
+                            os.remove(image_path)
+                        
+                        st.success(f"✅ {person_to_remove} has been removed from the database!")
+                        
+                        # Reset the session state and rerun
+                        st.session_state.pop(f"confirm_{person_to_remove}", None)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error removing {person_to_remove}: {str(e)}")
     else:
         st.info("No people in database yet. Add some using the 'Add Person' page!")
 
